@@ -1,3 +1,4 @@
+
 """
 GameEngine: owns the puck, both paddles, and the computer AI, and runs
 one frame's worth of game logic.
@@ -23,6 +24,10 @@ INITIAL_PUCK_SPEED = 4.5
 
 class GameEngine:
     def __init__(self):
+        # Task 2: Initialize scores
+        self.player_score = 0
+        self.computer_score = 0
+
         self.puck = Puck(WIDTH / 2, HEIGHT / 2, PUCK_RADIUS)
         self._launch_puck()
 
@@ -47,7 +52,9 @@ class GameEngine:
 
     def handle_input(self, keys_pressed):
         import pygame
+
         dx = dy = 0
+
         if keys_pressed[pygame.K_UP]:
             dy -= PLAYER_SPEED
         if keys_pressed[pygame.K_DOWN]:
@@ -56,6 +63,7 @@ class GameEngine:
             dx -= PLAYER_SPEED
         if keys_pressed[pygame.K_RIGHT]:
             dx += PLAYER_SPEED
+
         self.player.move_by(dx, dy)
 
     def update(self):
@@ -70,14 +78,19 @@ class GameEngine:
         self._handle_goals()
 
     def _handle_goals(self):
+        # Left-side goal: player scores
         if self.puck.x - self.puck.radius < MARGIN:
             if GOAL_TOP < self.puck.y < GOAL_BOTTOM:
+                self.player_score += 1
                 self._reset_puck()
             else:
                 self.puck.x = MARGIN + self.puck.radius
                 self.puck.vx = -self.puck.vx
+
+        # Right-side goal: computer scores
         elif self.puck.x + self.puck.radius > WIDTH - MARGIN:
             if GOAL_TOP < self.puck.y < GOAL_BOTTOM:
+                self.computer_score += 1
                 self._reset_puck()
             else:
                 self.puck.x = WIDTH - MARGIN - self.puck.radius
@@ -90,7 +103,29 @@ class GameEngine:
 
     def draw(self, surface, font):
         from game import renderer
+
         renderer.draw_table(surface)
         renderer.draw_paddle(surface, self.player, renderer.COLOR_PLAYER)
         renderer.draw_paddle(surface, self.computer, renderer.COLOR_COMPUTER)
         renderer.draw_puck(surface, self.puck)
+
+        # Task 2: Display both scores
+        player_text = font.render(
+            f"Player: {self.player_score}",
+            True,
+            renderer.COLOR_PLAYER,
+        )
+        computer_text = font.render(
+            f"Computer: {self.computer_score}",
+            True,
+            renderer.COLOR_COMPUTER,
+        )
+
+        surface.blit(player_text, (MARGIN + 20, MARGIN + 10))
+        surface.blit(
+            computer_text,
+            (
+                WIDTH - MARGIN - computer_text.get_width() - 20,
+                MARGIN + 10,
+            ),
+        )
