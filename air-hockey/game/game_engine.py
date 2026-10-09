@@ -5,6 +5,7 @@ one frame's worth of game logic.
 
 Task 2: Match scoring.
 Task 3: 30-second match timer and final result.
+Task 4: Reset and relaunch the puck after a goal.
 """
 
 import random
@@ -70,7 +71,7 @@ class GameEngine:
         self.puck.vy = INITIAL_PUCK_SPEED * vy_factor
 
     def handle_input(self, keys_pressed):
-        # Task 3: Prevent player movement after match ends
+        # Stop player movement after the match ends
         if self.game_over:
             return
 
@@ -90,19 +91,18 @@ class GameEngine:
         self.player.move_by(dx, dy)
 
     def update(self):
-        # Do not update gameplay after the match ends
+        # Stop all gameplay after the match ends
         if self.game_over:
             return
 
-        # Task 3: Calculate time from elapsed real time
+        # Task 3: Calculate remaining time using elapsed real time
         elapsed_time = time.monotonic() - self.match_start_time
-
         self.remaining_time = max(
             0.0,
             self.match_duration - elapsed_time,
         )
 
-        # End the match when the timer reaches zero
+        # End match when time reaches zero
         if self.remaining_time <= 0:
             self.game_over = True
 
@@ -115,15 +115,17 @@ class GameEngine:
 
             return
 
-        # Existing gameplay logic: preserved
+        # Existing AI and movement logic
         self.ai.update(self.computer, self.puck)
 
         self.puck.move()
         self.puck.bounce_off_walls(HEIGHT, MARGIN)
 
+        # Existing collision handling
         handle_paddle_collision(self.puck, self.player)
         handle_paddle_collision(self.puck, self.computer)
 
+        # Check for goals
         self._handle_goals()
 
     def _handle_goals(self):
@@ -146,15 +148,17 @@ class GameEngine:
                 self.puck.vx = -self.puck.vx
 
     def _reset_puck(self):
-        # Existing reset behavior: unchanged
-        self.puck.x, self.puck.y = WIDTH / 2, HEIGHT / 2
-        self.puck.vx = 0
-        self.puck.vy = 0
+        # Task 4: Return puck to the center
+        self.puck.x = WIDTH / 2
+        self.puck.y = HEIGHT / 2
+
+        # Relaunch the puck so gameplay continues
+        self._launch_puck()
 
     def draw(self, surface, font):
         from game import renderer
 
-        # Existing drawing logic: preserved
+        # Draw table and game objects
         renderer.draw_table(surface)
 
         renderer.draw_paddle(
@@ -165,13 +169,14 @@ class GameEngine:
         )
         renderer.draw_puck(surface, self.puck)
 
-        # Task 2: Display scores
+        # Task 2: Display player score
         player_text = font.render(
             f"Player: {self.player_score}",
             True,
             renderer.COLOR_PLAYER,
         )
 
+        # Task 2: Display computer score
         computer_text = font.render(
             f"Computer: {self.computer_score}",
             True,
