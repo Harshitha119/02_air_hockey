@@ -3,12 +3,13 @@
 GameEngine: owns the puck, both paddles, and the computer AI, and runs
 one frame's worth of game logic.
 
-Starter version: the puck bounces around and paddles can hit it, but
-there is no scoring, no match timer, and the reset that happens after
-a goal is incomplete. That's what Tasks 2-4 fix/add.
+Task 2: Match scoring.
+Task 3: 30-second match timer and final result.
 """
 
 import random
+import time
+import math
 
 from game.puck import Puck
 from game.paddle import Paddle
@@ -28,29 +29,51 @@ class GameEngine:
         self.player_score = 0
         self.computer_score = 0
 
+        # Task 3: Initialize match timer
+        self.match_duration = 30.0
+        self.match_start_time = time.monotonic()
+        self.remaining_time = self.match_duration
+        self.game_over = False
+        self.result = None
+
         self.puck = Puck(WIDTH / 2, HEIGHT / 2, PUCK_RADIUS)
         self._launch_puck()
 
         self.player = Paddle(
-            x=WIDTH * 0.15, y=HEIGHT / 2, radius=PADDLE_RADIUS,
-            min_x=MARGIN + PADDLE_RADIUS, max_x=WIDTH / 2 - PADDLE_RADIUS,
-            min_y=MARGIN + PADDLE_RADIUS, max_y=HEIGHT - MARGIN - PADDLE_RADIUS,
+            x=WIDTH * 0.15,
+            y=HEIGHT / 2,
+            radius=PADDLE_RADIUS,
+            min_x=MARGIN + PADDLE_RADIUS,
+            max_x=WIDTH / 2 - PADDLE_RADIUS,
+            min_y=MARGIN + PADDLE_RADIUS,
+            max_y=HEIGHT - MARGIN - PADDLE_RADIUS,
         )
+
         self.computer = Paddle(
-            x=WIDTH * 0.85, y=HEIGHT / 2, radius=PADDLE_RADIUS,
-            min_x=WIDTH / 2 + PADDLE_RADIUS, max_x=WIDTH - MARGIN - PADDLE_RADIUS,
-            min_y=MARGIN + PADDLE_RADIUS, max_y=HEIGHT - MARGIN - PADDLE_RADIUS,
+            x=WIDTH * 0.85,
+            y=HEIGHT / 2,
+            radius=PADDLE_RADIUS,
+            min_x=WIDTH / 2 + PADDLE_RADIUS,
+            max_x=WIDTH - MARGIN - PADDLE_RADIUS,
+            min_y=MARGIN + PADDLE_RADIUS,
+            max_y=HEIGHT - MARGIN - PADDLE_RADIUS,
         )
+
         self.ai = ComputerAI()
 
     def _launch_puck(self):
         angle_choices = [0.3, 0.6, -0.3, -0.6]
         direction = random.choice([-1, 1])
         vy_factor = random.choice(angle_choices)
+
         self.puck.vx = INITIAL_PUCK_SPEED * direction
         self.puck.vy = INITIAL_PUCK_SPEED * vy_factor
 
     def handle_input(self, keys_pressed):
+        # Task 3: Prevent player movement after match ends
+        if self.game_over:
+            return
+
         import pygame
 
         dx = dy = 0
@@ -67,6 +90,32 @@ class GameEngine:
         self.player.move_by(dx, dy)
 
     def update(self):
+        # Do not update gameplay after the match ends
+        if self.game_over:
+            return
+
+        # Task 3: Calculate time from elapsed real time
+        elapsed_time = time.monotonic() - self.match_start_time
+
+        self.remaining_time = max(
+            0.0,
+            self.match_duration - elapsed_time,
+        )
+
+        # End the match when the timer reaches zero
+        if self.remaining_time <= 0:
+            self.game_over = True
+
+            if self.player_score > self.computer_score:
+                self.result = "Player Wins"
+            elif self.computer_score > self.player_score:
+                self.result = "Computer Wins"
+            else:
+                self.result = "Draw"
+
+            return
+
+        # Existing gameplay logic: preserved
         self.ai.update(self.computer, self.puck)
 
         self.puck.move()
@@ -97,6 +146,7 @@ class GameEngine:
                 self.puck.vx = -self.puck.vx
 
     def _reset_puck(self):
+        # Existing reset behavior: unchanged
         self.puck.x, self.puck.y = WIDTH / 2, HEIGHT / 2
         self.puck.vx = 0
         self.puck.vy = 0
@@ -104,24 +154,35 @@ class GameEngine:
     def draw(self, surface, font):
         from game import renderer
 
+        # Existing drawing logic: preserved
         renderer.draw_table(surface)
-        renderer.draw_paddle(surface, self.player, renderer.COLOR_PLAYER)
-        renderer.draw_paddle(surface, self.computer, renderer.COLOR_COMPUTER)
+
+        renderer.draw_paddle(
+            surface, self.player, renderer.COLOR_PLAYER
+        )
+        renderer.draw_paddle(
+            surface, self.computer, renderer.COLOR_COMPUTER
+        )
         renderer.draw_puck(surface, self.puck)
 
-        # Task 2: Display both scores
+        # Task 2: Display scores
         player_text = font.render(
             f"Player: {self.player_score}",
             True,
             renderer.COLOR_PLAYER,
         )
+
         computer_text = font.render(
             f"Computer: {self.computer_score}",
             True,
             renderer.COLOR_COMPUTER,
         )
 
-        surface.blit(player_text, (MARGIN + 20, MARGIN + 10))
+        surface.blit(
+            player_text,
+            (MARGIN + 20, MARGIN + 10),
+        )
+
         surface.blit(
             computer_text,
             (
@@ -129,3 +190,30 @@ class GameEngine:
                 MARGIN + 10,
             ),
         )
+
+        # Task 3: Display remaining time
+        timer_text = font.render(
+            f"Time: {math.ceil(self.remaining_time)}",
+            True,
+            (255, 255, 255),
+        )
+
+        timer_rect = timer_text.get_rect(
+            center=(WIDTH // 2, MARGIN + 20)
+        )
+
+        surface.blit(timer_text, timer_rect)
+
+        # Task 3: Display final result
+        if self.game_over:
+            result_text = font.render(
+                self.result,
+                True,
+                (255, 255, 255),
+            )
+
+            result_rect = result_text.get_rect(
+                center=(WIDTH // 2, HEIGHT // 2)
+            )
+
+            surface.blit(result_text, result_rect)
